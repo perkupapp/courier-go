@@ -2,6 +2,8 @@ package courier
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 )
 
 // ProvidersChannelResponse represents the channel section of the ProvidersResponse
@@ -38,6 +40,12 @@ type MessageResponse struct {
 	Sent         int64
 	Clicked      int64
 	Providers    []*ProvidersResponse
+	Tags         []string
+}
+
+type MessagesResponse struct {
+	Paging  *PagingResponse
+	Results []*MessageResponse
 }
 
 // GetMessage calls the /messages/:id endpoint of the Courier API
@@ -48,4 +56,36 @@ func (c *Client) GetMessage(ctx context.Context, messageID string) (*MessageResp
 		return nil, err
 	}
 	return &response, nil
+}
+
+// GetMessages calls the /messages/ endpoint of the Courier API
+func (c *Client) GetMessages(ctx context.Context, cursor, tags string) (*MessagesResponse, error) {
+	url := c.API.BaseURL + "/messages"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	if cursor != "" {
+		q.Add("cursor", cursor)
+	}
+	if tags != "" {
+		q.Add("tags", tags)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	bytes, err := c.API.ExecuteRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var data MessagesResponse
+	err = json.Unmarshal(bytes, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &data, nil
 }
